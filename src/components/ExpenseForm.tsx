@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Person, Expense, ExpenseSplit } from "../types";
 
-
 interface Props {
   people: Person[];
   onAddExpense: (expense: Omit<Expense, "id">) => void;
 }
-
 
 const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
   const [description, setDescription] = useState("");
@@ -18,20 +16,18 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
-
   // refs to inputs so we can focus safely when they appear
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-
   const togglePerson = (id: string) => {
-    setSelected(prev => {
+    setSelected((prev) => {
       const updated = new Set(prev);
       if (updated.has(id)) {
         updated.delete(id);
       } else {
         updated.add(id);
-        // ensure key exists for stable controlled input (avoids uncontrolled -> controlled warnings)
-        setCustomAmounts(prevAmounts => {
+        // ensure key exists for stable controlled input
+        setCustomAmounts((prevAmounts) => {
           if (id in prevAmounts) return prevAmounts;
           return { ...prevAmounts, [id]: "" };
         });
@@ -40,8 +36,6 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
     });
   };
 
-
-  // when in custom mode and selection changes, focus the last-added input safely
   useEffect(() => {
     if (splitType !== "custom") return;
     const ids = Array.from(selected);
@@ -51,27 +45,28 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
     if (!el) return;
     try {
       el.focus();
-      // DO NOT call setSelectionRange on number inputs — some browsers throw.
-      // We intentionally avoid selection manipulation to be cross-browser safe.
-    } catch (err) {
-      // ignore focus errors — don't crash the app
-      // console.debug("focus error", err);
+    } catch {
+      // ignore focus errors
     }
   }, [selected, splitType]);
-
 
   const handleAdd = () => {
     setError("");
     const total = parseFloat(amount);
+
+    // ✅ Prevent adding expenses if fewer than 2 members
+    if (people.length < 2) {
+      setError("⚠️ Add at least two members before tracking expenses");
+      return;
+    }
+
     if (!description.trim() || !total || !paidBy || selected.size === 0) {
       setError("Please fill all fields");
       return;
     }
 
-
     const totalCents = Math.round(total * 100);
     let splits: ExpenseSplit[] = [];
-
 
     if (splitType === "equal") {
       const ids = Array.from(selected);
@@ -89,7 +84,6 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
         amount: parseFloat(customAmounts[id] || "0"),
       }));
 
-
       const customSum = splits.reduce((sum, s) => sum + Math.round(s.amount * 100), 0);
       if (customSum !== totalCents) {
         setError(
@@ -101,7 +95,6 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
       }
     }
 
-
     onAddExpense({
       description: description.trim(),
       amount: total,
@@ -111,8 +104,7 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
       splits,
     });
 
-
-    // Reset
+    // Reset form
     setDescription("");
     setAmount("");
     setPaidBy("");
@@ -120,6 +112,8 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
     setCustomAmounts({});
   };
 
+  // ✅ Disable the Add button if less than 2 members
+  const disableAdd = people.length < 2;
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-lg mb-6">
@@ -127,6 +121,12 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
         💸 Add Expense
       </h2>
 
+      {/* ✅ Error if fewer than 2 members */}
+      {disableAdd && (
+        <p className="bg-yellow-100 border border-yellow-300 text-yellow-800 px-3 py-2 rounded-md mb-4 text-sm">
+          ⚠️ Add at least two members before you can track expenses.
+        </p>
+      )}
 
       {/* Description */}
       <input
@@ -136,7 +136,6 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
         onChange={(e) => setDescription(e.target.value)}
         className="w-full border-2 border-gray-200 rounded-md px-3 py-2 mb-3 text-gray-800 focus:border-indigo-500 outline-none"
       />
-
 
       {/* Amount + Date */}
       <div className="flex gap-4 mb-3">
@@ -160,7 +159,6 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
         </div>
       </div>
 
-
       {/* Paid By */}
       <select
         value={paidBy}
@@ -174,7 +172,6 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
           </option>
         ))}
       </select>
-
 
       {/* Split Type */}
       <div className="mb-4">
@@ -199,7 +196,6 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
         </div>
       </div>
 
-
       {/* Split Between */}
       <div>
         <label className="block text-gray-700 font-medium mb-2">Split Between</label>
@@ -218,8 +214,6 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
               <span className="truncate">{p.name}</span>
             </label>
 
-
-            {/* Custom Amount Input — appears dynamically with improved spacing */}
             {splitType === "custom" && selected.has(p.id) && (
               <div className="ml-4 flex items-center">
                 <input
@@ -229,7 +223,10 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
                   placeholder="0.00"
                   value={customAmounts[p.id] ?? ""}
                   onChange={(e) =>
-                    setCustomAmounts((prev) => ({ ...prev, [p.id]: e.target.value }))
+                    setCustomAmounts((prev) => ({
+                      ...prev,
+                      [p.id]: e.target.value,
+                    }))
                   }
                   className="w-20 border-2 border-gray-200 rounded-md px-3 py-2 text-sm text-right placeholder-gray-400 focus:border-indigo-500 outline-none"
                 />
@@ -239,21 +236,23 @@ const ExpenseForm: React.FC<Props> = ({ people, onAddExpense }) => {
         ))}
       </div>
 
-
       {/* Error */}
       {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
-
 
       {/* Add */}
       <button
         onClick={handleAdd}
-        className="mt-4 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 rounded-md transition-colors"
+        disabled={disableAdd}
+        className={`mt-4 w-full font-medium py-2 rounded-md transition-colors ${
+          disableAdd
+            ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+            : "bg-indigo-500 hover:bg-indigo-600 text-white"
+        }`}
       >
         Add Expense
       </button>
     </div>
   );
 };
-
 
 export default ExpenseForm;

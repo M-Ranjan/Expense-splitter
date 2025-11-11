@@ -94,4 +94,3 @@ const PeopleManager: React.FC<Props> = ({ people, onAddPerson, onRemovePerson })
 
 export default PeopleManager;
 
-
